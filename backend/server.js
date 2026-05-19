@@ -12,7 +12,7 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// ✅ API Routes
+// API Routes
 app.use('/api/upload', require('./routes/upload'));
 app.use('/api/extract', require('./routes/extract'));
 app.use('/api/records', require('./routes/records'));
@@ -20,18 +20,28 @@ app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/history', require('./routes/history'));
 
 // ============================================
-// ✅ CRITICAL FIX: Serve Frontend Files
+// CRITICAL: Serve Frontend Files
 // ============================================
 
-// This finds the 'client/build' or 'frontend/dist' folder no matter what [citation:7][citation:8]
-// 'process.cwd()' is the key - it always points to your project root on Render
-const distPath = path.resolve(process.cwd(), 'frontend', 'dist');
+// Try multiple possible paths for frontend dist folder
+const possiblePaths = [
+    path.join(__dirname, '../frontend/dist'),
+    path.join(process.cwd(), 'frontend/dist'),
+    path.join(process.cwd(), '../frontend/dist'),
+    '/opt/render/project/src/frontend/dist'
+];
 
-console.log('🔍 Looking for frontend at:', distPath);
-console.log('📁 Folder exists?', fs.existsSync(distPath));
+let distPath = null;
+for (const testPath of possiblePaths) {
+    if (fs.existsSync(testPath)) {
+        distPath = testPath;
+        console.log(`✅ Found frontend at: ${distPath}`);
+        break;
+    }
+}
 
-if (fs.existsSync(distPath)) {
-    // Serve static files (CSS, JS, images) with the correct MIME type [citation:5][citation:8]
+if (distPath) {
+    // Serve static files with correct MIME types
     app.use(express.static(distPath, {
         setHeaders: (res, filePath) => {
             if (filePath.endsWith('.css')) {
@@ -43,20 +53,26 @@ if (fs.existsSync(distPath)) {
         }
     }));
     
-    // For any non-API request, send the React app's index.html
-    // This also enables React Router to work on refresh [citation:4]
+    // All non-API routes go to index.html
     app.get('*', (req, res) => {
         if (req.path.startsWith('/api')) {
             return res.status(404).json({ error: 'API endpoint not found' });
         }
         res.sendFile(path.join(distPath, 'index.html'));
     });
-    
-    console.log('✅ Frontend configuration successful!');
+    console.log('✅ Frontend serving configured');
 } else {
-    console.error(`❌ Frontend build NOT found at ${distPath}`);
+    console.error('❌ Could not find frontend dist folder');
     app.get('/', (req, res) => {
-        res.send('Server is running, but frontend build is missing. Check Render build command.');
+        res.send(`
+            <html>
+                <head><title>BiztelAI API</title></head>
+                <body>
+                    <h1>BiztelAI Backend Running</h1>
+                    <p>API is working. Visit <a href="/api/dashboard/stats">/api/dashboard/stats</a></p>
+                </body>
+            </html>
+        `);
     });
 }
 

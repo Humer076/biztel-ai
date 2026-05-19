@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: biztel-ai-workflow
+    env: node
+    buildCommand: cd frontend && npm install && npm run build
+    startCommand: cd backend && npm install && node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: GEMINI_API_KEY
+        sync: false
+    headers:
+      - path: /assets/*.css
+        name: Content-Type
+        value: text/css
+      - path: /assets/*.js
+        name: Content-Type
+        value: application/javascript
